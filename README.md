@@ -44,6 +44,11 @@ AWS_PROFILE=<your-profile> aws s3api list-objects --bucket <bucket-alias>
 AWS_PROFILE=<your-profile> aws s3api list-objects-v2 --bucket <bucket-alias>
 ```
 
+For higher-level APIs, you can use the following commands:
+```bash
+AWS_PROFILE=<your-profile> aws s3 ls s3://<bucket-alias>
+```
+
 ### GetObject
 
 ```bash
