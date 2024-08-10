@@ -55,6 +55,10 @@ AWS_PROFILE=<your-profile> aws s3 ls s3://<bucket-alias>
 AWS_PROFILE=<your-profile> aws s3api get-object --bucket <bucket-alias> --key <object-key> <output-file>
 ```
 
+## Known Issues
+
+Currently, when Lambda raises an error the S3 client will retry it because nothing is returned to the client. We may avoid return error to Lambda and use S3 error response instead.
+
 ## References
 
 * https://aws.amazon.com/tw/blogs/storage/managing-access-to-your-amazon-s3-objects-with-a-custom-authorizer/
