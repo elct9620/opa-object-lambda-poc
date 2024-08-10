@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  opa-s3-access-point
+
+  Sample SAM Template for opa-s3-access-point
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  S3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: '*'
+            Effect: Allow
+            Resource:
+              - !GetAtt S3Bucket.Arn
+              - !Sub "${S3Bucket.Arn}/*"
+            Principal:
+              AWS: '*'
+            Condition:
+              StringEquals:
+                's3:DataAccessPointAccount': !Sub ${AWS::AccountId}
+
+  # S3 Access Point (Network origin: Internet)
+  S3AccessPoint:
+    Type: 'AWS::S3::AccessPoint'
+    Properties:
+      Bucket: !Ref S3Bucket
+      Name: 'opa-s3-ap'
+
+  S3ObjectLambdaAccessPoint:
+    Type: 'AWS::S3ObjectLambda::AccessPoint'
+    Properties:
+      Name: 'opa-s3-ol-ap'
+      ObjectLambdaConfiguration:
+          SupportingAccessPoint: !Sub 'arn:aws:s3:${AWS::Region}:${AWS::AccountId}:accesspoint/${S3AccessPoint}'
+          CloudWatchMetricsEnabled: true
+          AllowedFeatures:
+            - GetObject-Range
+            - GetObject-PartNumber
+          TransformationConfigurations:
+            - Actions:
+                - GetObject
+                - ListObjects
+                - ListObjectsV2
+              ContentTransformation:
+                AwsLambda:
+                  FunctionArn: !GetAtt OpaFunction.Arn
+                  FunctionPayload: !Ref S3Bucket
+
+
+  OpaFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: src/
+      Handler: bootstrap
+      Runtime: provided.al2
+      MemorySize: 2048
+      Architectures:
+        - x86_64
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action: 's3-object-lambda:WriteGetObjectResponse'
+            Resource: '*'
+
+Outputs:
+  S3BucketName:
+    Value: !Ref S3Bucket
+    Description: S3 Bucket for object storage.
+  S3AccessPointArn:
+    Value: !Ref S3AccessPoint
+    Description: Name of the S3 access point.
+  S3AccessPointAlias:
+    Value: !GetAtt S3AccessPoint.Alias
+    Description: Alias of the S3 access point.
+  S3ObjectLambdaAccessPointArn:
+    Value: !Ref S3ObjectLambdaAccessPoint
+    Description: Name of the S3 object lambda access point.
+  S3ObjectLambdaAccessPointAlias:
+    Value: !GetAtt S3ObjectLambdaAccessPoint.Alias.Value
+    Description: Alias of the S3 object lambda access point.
